@@ -212,7 +212,8 @@ export default function OCRReader() {
         if (!context) throw new Error('Canvas context error');
         canvas.height = viewport.height;
         canvas.width = viewport.width;
-        await page.render({ canvasContext: context, viewport }).promise;
+        // @ts-ignore
+        await page.render({ canvasContext: context, viewport, canvas }).promise;
         imageToProcess = canvas;
       } else {
         imageToProcess = typeof file === 'string' ? file : await (async () => {
@@ -430,7 +431,7 @@ export default function OCRReader() {
                   className="flex flex-col items-center justify-center p-6 rounded-[35px] bg-orange-50 text-orange-400 hover:bg-orange-100 disabled:opacity-20 transition-all gap-2"
                 >
                   <Volume2 className="w-10 h-10" />
-                  <span className="text-xs font-black">重新播放</span>
+                  <span className="text-xs font-black">重新唸</span>
                 </button>
               </div>
             </section>
