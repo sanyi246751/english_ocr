@@ -67,13 +67,14 @@ export default function OCRReader() {
       if (availableVoices.length > 0) {
         setVoices(englishVoices.length > 0 ? englishVoices : availableVoices);
         
-        // Auto-select Tom Teacher (Desktop: David/Mark, Mobile: Aaron/Male)
+        // Auto-select Tom Teacher (Male) as default
         if (englishVoices.length > 0) {
           setConfig(prev => {
             if (prev.voiceURI) return prev;
+            // Prefer Tom (David/Mark/Aaron/Male)
             const tom = englishVoices.find(v => {
               const name = v.name.toLowerCase();
-              return name.includes('david') || name.includes('mark') || name.includes('aaron') || (name.includes('male') && !name.includes('danny'));
+              return name.includes('david') || name.includes('mark') || name.includes('aaron') || (name.includes('male') && !name.includes('daniel'));
             }) || englishVoices[0];
             return { ...prev, voiceURI: tom.voiceURI };
           });
@@ -98,20 +99,17 @@ export default function OCRReader() {
   }, []);
 
   const getCharacterName = (voice: SpeechSynthesisVoice) => {
-    const name = voice.name.toLowerCase();
+    const n = voice.name.toLowerCase();
+    const u = voice.voiceURI.toLowerCase();
     
-    // Desktop (David, Mark, Zira) & Mobile (Aaron, Samantha, Nicky, sfg) Mapping
-    // Tom: David, Mark, Aaron, or Generic Male
-    if (name.includes('david') || name.includes('mark') || name.includes('aaron') || (name.includes('male') && !name.includes('danny'))) return '🎩 湯姆老師';
+    // Danny: Specifically Daniel or Danny
+    if (n.includes('danny') || n.includes('daniel')) return '👨‍🏫 丹尼老師';
+
+    // Tom (Default Male): David, Mark, Aaron, Gordon, or Generic Male
+    if (n.includes('david') || n.includes('mark') || n.includes('aaron') || n.includes('gordon') || n.includes('male')) return '🎩 湯姆老師';
     
-    // Lucy: Zira, Samantha, Nicky, Female, or Android "sfg"
-    if (name.includes('zira') || name.includes('samantha') || name.includes('nicky') || name.includes('female') || name.includes('x-sfg')) return '👩‍🏫 露西姊姊';
-    
-    // Danny: Specifically named Danny or Daniel
-    if (name.includes('danny') || name.includes('daniel')) return '👨‍🏫 丹尼老師';
-    
-    // Other teachers
-    if (name.includes('susan') || name.includes('linda') || name.includes('alice')) return `👒 愛麗絲老師`;
+    // Lucy (Female): Zira, Samantha, Nicky, Female, or Android "sfg"
+    if (n.includes('zira') || n.includes('samantha') || n.includes('nicky') || n.includes('female') || n.includes('x-sfg') || u.includes('sfg') || n.includes('susan') || n.includes('alice')) return '👩‍🏫 露西姊姊';
     
     return `✨ ${voice.name.split(' ')[0].replace(/[^a-zA-Z]/g, '') || '小語音'}`;
   };
@@ -415,22 +413,35 @@ export default function OCRReader() {
               )}
 
               <div className="mt-12 grid grid-cols-4 gap-6 items-center">
-                <button onClick={stopTTS} disabled={!isPlaying} className="flex flex-col items-center justify-center p-6 rounded-[35px] bg-slate-50 text-slate-400 hover:bg-slate-100 disabled:opacity-20 transition-all gap-2">
-                  <Pause className="w-10 h-10 fill-current" />
-                  <span className="text-xs font-black">停止</span>
-                </button>
-
-                <button onClick={playTTS} disabled={!text || isProcessing || isPlaying} className={cn("col-span-2 flex flex-col items-center justify-center p-8 rounded-[40px] shadow-2xl transition-all gap-2 scale-110 z-10", isPlaying ? "bg-slate-50 text-slate-300 cursor-not-allowed" : "bg-gradient-to-br from-orange-400 to-orange-500 text-white shadow-orange-200 hover:scale-[1.15] active:scale-95")}>
-                  <Play className="w-12 h-12 fill-current" />
-                  <span className="text-lg font-black tracking-wider">開始唸書</span>
+                <button 
+                  onClick={isPlaying ? stopTTS : playTTS} 
+                  disabled={!text || isProcessing}
+                  className={cn(
+                    "col-span-3 flex flex-col items-center justify-center p-8 rounded-[40px] shadow-2xl transition-all gap-2 z-10",
+                    isPlaying 
+                      ? "bg-slate-800 text-white hover:bg-slate-900 shadow-slate-200 hover:scale-[1.05]" 
+                      : "bg-gradient-to-br from-orange-400 to-orange-500 text-white shadow-orange-200 hover:scale-[1.1] active:scale-95"
+                  )}
+                >
+                  {isPlaying ? (
+                    <>
+                      <Pause className="w-12 h-12 fill-current" />
+                      <span className="text-lg font-black tracking-wider">停止唸書</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-12 h-12 fill-current" />
+                      <span className="text-lg font-black tracking-wider">開始唸書</span>
+                    </>
+                  )}
                 </button>
 
                 <button 
                   onClick={playTTS} 
                   disabled={!text || isProcessing || isPlaying}
-                  className="flex flex-col items-center justify-center p-6 rounded-[35px] bg-orange-50 text-orange-400 hover:bg-orange-100 disabled:opacity-20 transition-all gap-2"
+                  className="flex flex-col items-center justify-center p-8 rounded-[40px] bg-orange-50 text-orange-400 hover:bg-orange-100 disabled:opacity-20 transition-all gap-2 group"
                 >
-                  <Volume2 className="w-10 h-10" />
+                  <Volume2 className="w-10 h-10 group-hover:scale-110 transition-transform" />
                   <span className="text-xs font-black">重新唸</span>
                 </button>
               </div>
