@@ -384,7 +384,7 @@ export default function OCRReader() {
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   placeholder="✨ 把課本放進來，按一下「開始唸書」就可以聽囉！🎒"
-                  className="w-full h-full p-10 rounded-[40px] bg-amber-50/20 border-4 border-transparent focus:border-orange-100 transition-all outline-none resize-none text-3xl font-bold leading-relaxed text-slate-900 placeholder:text-amber-200 caret-orange-500 selection:bg-orange-100"
+                  className="w-full h-full p-10 rounded-[40px] bg-[#FFF9E5] border-4 border-transparent focus:border-orange-200 transition-all outline-none resize-none text-3xl font-black leading-relaxed text-[#0F172A] placeholder:text-amber-300 caret-orange-500"
                 />
 
                 {/* Practice Score Overlay */}
