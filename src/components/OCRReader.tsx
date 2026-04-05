@@ -103,16 +103,33 @@ export default function OCRReader() {
     const u = voice.voiceURI.toLowerCase();
     
     // Danny: Specifically Daniel or Danny
-    if (n.includes('danny') || n.includes('daniel')) return '👨‍🏫 丹尼老師';
+    if (n.includes('danny') || n.includes('daniel')) return '👨‍🏫 Danny';
+
+    // Lucy (Female): Zira, Samantha, Nicky, Female, or Android "sfg"
+    if (n.includes('zira') || n.includes('samantha') || n.includes('nicky') || n.includes('female') || n.includes('x-sfg') || u.includes('sfg') || n.includes('susan') || n.includes('alice') || n.includes('catherine')) return '👩‍🏫 Lucy';
 
     // Tom (Default Male): David, Mark, Aaron, Gordon, or Generic Male
-    if (n.includes('david') || n.includes('mark') || n.includes('aaron') || n.includes('gordon') || n.includes('male')) return '🎩 湯姆老師';
+    if (n.includes('david') || n.includes('mark') || n.includes('aaron') || n.includes('gordon') || n.includes('male') || n.includes('arthur')) return '🎩 Tom';
     
-    // Lucy (Female): Zira, Samantha, Nicky, Female, or Android "sfg"
-    if (n.includes('zira') || n.includes('samantha') || n.includes('nicky') || n.includes('female') || n.includes('x-sfg') || u.includes('sfg') || n.includes('susan') || n.includes('alice')) return '👩‍🏫 露西姊姊';
-    
-    return `✨ ${voice.name.split(' ')[0].replace(/[^a-zA-Z]/g, '') || '小語音'}`;
+    return `✨ ${voice.name.split(' ')[0].replace(/[^a-zA-Z]/g, '') || 'Voice'}`;
   };
+
+  // Filter voices to show only unique characters in the dropdown
+  const displayVoices = React.useMemo(() => {
+    const uniqueMap = new Map<string, SpeechSynthesisVoice>();
+    voices.forEach(v => {
+      const name = getCharacterName(v);
+      if (!uniqueMap.has(name) || (v.lang === 'en-US' && !uniqueMap.get(name)?.lang.includes('US'))) {
+        uniqueMap.set(name, v);
+      }
+    });
+    return Array.from(uniqueMap.values()).sort((a, b) => {
+      const nameA = getCharacterName(a);
+      if (nameA.includes('Tom')) return -1;
+      if (nameA.includes('Lucy')) return 1;
+      return 0;
+    });
+  }, [voices]);
 
   const evaluateWithWebSpeech = () => {
     if (!('webkitSpeechRecognition' in window) && !('speechRecognition' in window)) {
@@ -333,11 +350,11 @@ export default function OCRReader() {
                   <div className="space-y-3">
                     <label className="text-sm font-black text-amber-500 flex px-1">誰來教我唸？</label>
                     <select value={config.voiceURI} onChange={(e) => setConfig({...config, voiceURI: e.target.value})} className="w-full p-5 rounded-[25px] bg-amber-50 border-2 border-amber-100 text-lg font-bold text-amber-800 outline-none focus:border-orange-400 transition-colors cursor-pointer">
-                      {voices.length > 0 ? voices.map(v => (
+                      {displayVoices.length > 0 ? displayVoices.map(v => (
                         <option key={v.voiceURI} value={v.voiceURI}>
                           {getCharacterName(v)}
                         </option>
-                      )) : <option>載入中...</option>}
+                      )) : <option>Loading...</option>}
                     </select>
                   </div>
 
