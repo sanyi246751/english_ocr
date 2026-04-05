@@ -244,108 +244,130 @@ export default function OCRReader() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f0f4f8] p-4 md:p-8 font-sans text-slate-800">
-
-      <div className="max-w-4xl mx-auto space-y-8">
+    <div className="min-h-screen bg-[#FFFBEB] p-4 md:p-8 font-sans text-slate-800">
+      
+      <div className="max-w-5xl mx-auto space-y-8">
         {/* Header */}
-        <header className="text-center space-y-2">
-          <motion.h1
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600"
+        <header className="text-center space-y-4">
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 100 }}
+            className="inline-block p-4 bg-orange-100 rounded-full"
           >
-            品量的英語小助手
-          </motion.h1>
-          <p className="text-slate-500">English OCR & Reader</p>
+            <Volume2 className="w-12 h-12 text-orange-500" />
+          </motion.div>
+          <div>
+            <motion.h1 
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              className="text-4xl md:text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-amber-500 tracking-tight"
+            >
+              品量的英語小助手
+            </motion.h1>
+            <p className="text-amber-600 font-medium mt-1">✨ 英語讀讀看，學習好簡單 ✨</p>
+          </div>
         </header>
 
         {/* Main Content Area */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
           {/* Left Column: Controls & Input */}
-          <div className="lg:col-span-1 space-y-6">
-            <section className="bg-white/70 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-xl shadow-blue-500/5 space-y-6">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <Upload className="w-5 h-5 text-blue-500" />
-                來源輸入
-              </h2>
-
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={startCamera}
-                  className="flex flex-col items-center justify-center p-4 rounded-2xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors gap-2 group"
-                >
-                  <Camera className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                  <span className="text-sm font-medium">相機拍照</span>
-                </button>
-
-                <div {...getRootProps()} className="cursor-pointer">
-                  <input {...getInputProps()} />
-                  <div className={cn(
-                    "flex flex-col items-center justify-center p-4 rounded-2xl border-2 border-dashed transition-all gap-2 h-full",
-                    isDragActive ? "border-blue-400 bg-blue-50" : "border-slate-200 hover:border-blue-300 hover:bg-slate-50"
-                  )}>
-                    <Upload className="w-6 h-6 text-slate-400" />
-                    <span className="text-sm font-medium text-slate-600">上傳檔案</span>
+          <div className="lg:col-span-4 space-y-6">
+            <section className="bg-white/90 backdrop-blur-md border-4 border-orange-100 rounded-[40px] p-8 shadow-2xl shadow-orange-200/50 space-y-8">
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold flex items-center gap-3 text-orange-600">
+                  <span className="p-2 bg-orange-100 rounded-2xl"><Upload className="w-6 h-6" /></span>
+                  放進教材
+                </h2>
+                
+                <div className="flex flex-col gap-4">
+                  <button 
+                    onClick={startCamera}
+                    className="flex items-center justify-between p-5 rounded-3xl bg-gradient-to-br from-orange-400 to-orange-500 text-white hover:scale-[1.03] active:scale-95 transition-all shadow-lg shadow-orange-200 group"
+                  >
+                    <div className="flex items-center gap-4">
+                      <Camera className="w-8 h-8" />
+                      <span className="text-lg font-bold">打開相機</span>
+                    </div>
+                    <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">→</div>
+                  </button>
+                  
+                  <div {...getRootProps()} className="cursor-pointer">
+                    <input {...getInputProps()} />
+                    <div className={cn(
+                      "flex items-center justify-between p-5 rounded-3xl border-4 border-dashed transition-all group",
+                      isDragActive ? "border-orange-400 bg-orange-50" : "border-amber-100 hover:border-orange-300 hover:bg-amber-50"
+                    )}>
+                      <div className="flex items-center gap-4">
+                        <Upload className="w-8 h-8 text-amber-400" />
+                        <span className="text-lg font-bold text-amber-700">上傳檔案</span>
+                      </div>
+                      <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center group-hover:bg-orange-100 italic">+</div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-4 pt-4 border-t border-slate-100">
-                <h3 className="text-sm font-semibold text-slate-500 flex items-center gap-2">
-                  <Settings2 className="w-4 h-4" />
+              <div className="space-y-6 pt-8 border-t-4 border-orange-50">
+                <h3 className="text-lg font-bold text-amber-600 flex items-center gap-3">
+                  <span className="p-2 bg-amber-100 rounded-2xl"><Settings2 className="w-5 h-5" /></span>
                   朗讀設定
                 </h3>
-
-                <div className="space-y-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-slate-400 flex justify-between">
-                      重複次數 <span>{config.repeatCount} 次</span>
+                
+                <div className="space-y-5">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-amber-500 flex justify-between px-1">
+                      重複唸幾次 <span>{config.repeatCount} 次</span>
                     </label>
-                    <input
+                    <input 
                       type="range" min="1" max="5" step="1"
                       value={config.repeatCount}
-                      onChange={(e) => setConfig({ ...config, repeatCount: parseInt(e.target.value) })}
-                      className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                      onChange={(e) => setConfig({...config, repeatCount: parseInt(e.target.value)})}
+                      className="w-full h-3 bg-amber-100 rounded-full appearance-none cursor-pointer accent-orange-500"
                     />
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-slate-400 flex justify-between">
-                      語速 <span>{config.speed}x</span>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-amber-500 flex justify-between px-1">
+                      唸書速度 <span>{config.speed}x</span>
                     </label>
-                    <input
+                    <input 
                       type="range" min="0.5" max="2.0" step="0.1"
                       value={config.speed}
-                      onChange={(e) => setConfig({ ...config, speed: parseFloat(e.target.value) })}
-                      className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                      onChange={(e) => setConfig({...config, speed: parseFloat(e.target.value)})}
+                      className="w-full h-3 bg-amber-100 rounded-full appearance-none cursor-pointer accent-orange-500"
                     />
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-slate-400 flex justify-between">
-                      間隔時間 <span>{config.interval / 1000}s</span>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-amber-500 flex justify-between px-1">
+                      每行停頓 <span>{config.interval / 1000}秒</span>
                     </label>
-                    <input
+                    <input 
                       type="range" min="0" max="3000" step="500"
                       value={config.interval}
-                      onChange={(e) => setConfig({ ...config, interval: parseInt(e.target.value) })}
-                      className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                      onChange={(e) => setConfig({...config, interval: parseInt(e.target.value)})}
+                      className="w-full h-3 bg-amber-100 rounded-full appearance-none cursor-pointer accent-orange-500"
                     />
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-slate-400">語音角色</label>
-                    <select
-                      value={config.voice}
-                      onChange={(e) => setConfig({ ...config, voice: e.target.value as any })}
-                      className="w-full p-2 rounded-xl bg-slate-50 border border-slate-200 text-sm outline-none focus:border-blue-400 transition-colors"
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-amber-500 flex px-1 italic">誰來唸給我聽</label>
+                    <select 
+                      value={config.voiceURI}
+                      onChange={(e) => setConfig({...config, voiceURI: e.target.value})}
+                      className="w-full p-4 rounded-[20px] bg-amber-50 border-2 border-amber-100 text-base font-bold text-amber-900 outline-none focus:border-orange-400 transition-colors cursor-pointer"
                     >
-                      <option value="Kore">Kore (溫和)</option>
-                      <option value="Puck">Puck (活潑)</option>
-                      <option value="Charon">Charon (沉穩)</option>
-                      <option value="Fenrir">Fenrir (低沉)</option>
-                      <option value="Zephyr">Zephyr (清亮)</option>
+                      {voices.length > 0 ? (
+                        voices.map(v => (
+                          <option key={v.voiceURI} value={v.voiceURI}>
+                            {v.name.includes('Google') ? '🎨 ' : '👤 '}{v.name.split(' - ')[0]}
+                          </option>
+                        ))
+                      ) : (
+                        <option>預設小老師</option>
+                      )}
                     </select>
                   </div>
                 </div>
@@ -354,44 +376,52 @@ export default function OCRReader() {
           </div>
 
           {/* Right Column: Result Display */}
-          <div className="lg:col-span-2 space-y-6">
-            <section className="bg-white/70 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-xl shadow-blue-500/5 min-h-[400px] flex flex-col relative overflow-hidden">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-indigo-500" />
-                  辨識結果
+          <div className="lg:col-span-8 space-y-6">
+            <section className="bg-white/90 backdrop-blur-md border-4 border-amber-100 rounded-[40px] p-8 shadow-2xl shadow-orange-200/30 flex flex-col relative overflow-hidden h-full">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold flex items-center gap-3 text-amber-700">
+                  <span className="p-2 bg-amber-100 rounded-2xl"><FileText className="w-6 h-6" /></span>
+                  書本內容
                 </h2>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   {text && (
-                    <button
+                    <button 
                       onClick={copyToClipboard}
-                      className="p-2 rounded-xl hover:bg-slate-100 text-slate-500 transition-colors relative"
+                      className="p-3 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-600 transition-colors"
+                      title="複製文字"
                     >
-                      {isCopied ? <Check className="w-5 h-5 text-green-500" /> : <Copy className="w-5 h-5" />}
+                      {isCopied ? <Check className="w-6 h-6 text-green-500" /> : <Copy className="w-6 h-6" />}
                     </button>
                   )}
-                  <button
+                  <button 
                     onClick={() => setText('')}
-                    className="p-2 rounded-xl hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors"
+                    className="p-3 rounded-2xl bg-orange-50 hover:bg-orange-100 text-orange-400 hover:text-orange-600 transition-colors"
+                    title="重新開始"
                   >
-                    <RotateCcw className="w-5 h-5" />
+                    <RotateCcw className="w-6 h-6" />
                   </button>
                 </div>
               </div>
 
-              <div className="flex-1 relative">
+              <div className="flex-1 relative group min-h-[400px]">
                 {isProcessing ? (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-white/50 backdrop-blur-sm z-10">
-                    <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
-                    <p className="text-slate-500 font-medium animate-pulse">
-                      正在辨識文字中... {Math.round(ocrProgress * 100)}%
-                    </p>
-                    <div className="w-48 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                      <motion.div
-                        className="h-full bg-blue-500"
-                        initial={{ width: 0 }}
-                        animate={{ width: `${ocrProgress * 100}%` }}
-                      />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 bg-white/80 backdrop-blur-md z-10 rounded-[30px]">
+                    <motion.div 
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                    >
+                      <Loader2 className="w-16 h-16 text-orange-500" />
+                    </motion.div>
+                    <div className="text-center space-y-3">
+                      <p className="text-orange-600 text-xl font-black animate-bounce">正在努力讀書中...</p>
+                      <div className="w-64 h-3 bg-orange-100 rounded-full overflow-hidden">
+                        <motion.div 
+                          className="h-full bg-gradient-to-r from-orange-400 to-amber-400"
+                          initial={{ width: 0 }}
+                          animate={{ width: `${ocrProgress * 100}%` }}
+                        />
+                      </div>
+                      <p className="text-orange-400 font-bold">{Math.round(ocrProgress * 100)}%</p>
                     </div>
                   </div>
                 ) : null}
@@ -399,40 +429,50 @@ export default function OCRReader() {
                 <textarea
                   value={text}
                   onChange={(e) => setText(e.target.value)}
-                  placeholder="辨識後的文字會出現在這裡，或是手動輸入文字進行朗讀..."
-                  className="w-full h-full min-h-[300px] p-4 rounded-2xl bg-slate-50/50 border border-slate-100 focus:border-blue-300 focus:ring-0 outline-none resize-none text-lg leading-relaxed placeholder:text-slate-300"
+                  placeholder="請拍一張英文課本的照片，或是把檔案傳上來喔！🎒"
+                  className="w-full h-full p-8 rounded-[30px] bg-amber-50/30 border-2 border-amber-50 focus:border-orange-300 focus:bg-white transition-all outline-none resize-none text-2xl leading-relaxed font-medium placeholder:text-amber-200"
                 />
               </div>
 
               {error && (
-                <div className="mt-4 p-3 rounded-xl bg-red-50 text-red-600 text-sm flex items-center gap-2">
-                  <X className="w-4 h-4" />
+                <div className="mt-6 p-4 rounded-3xl bg-red-50 text-red-600 font-bold flex items-center gap-3">
+                  <X className="w-6 h-6" />
                   {error}
                 </div>
               )}
 
-              <div className="mt-6 flex gap-4">
-                <button
-                  onClick={isPlaying ? stopTTS : playTTS}
-                  disabled={!text || isProcessing}
+              {/* Playback Controls */}
+              <div className="mt-8 grid grid-cols-3 gap-4">
+                <button 
+                  onClick={stopTTS}
+                  disabled={!isPlaying}
+                  className="flex flex-col items-center justify-center p-4 rounded-[25px] bg-red-100 text-red-600 hover:bg-red-200 disabled:opacity-30 transition-all gap-1"
+                >
+                  <Pause className="w-8 h-8 fill-current" />
+                  <span className="text-xs font-black">停止</span>
+                </button>
+                
+                <button 
+                  onClick={playTTS}
+                  disabled={!text || isProcessing || isPlaying}
                   className={cn(
-                    "flex-1 py-4 rounded-2xl font-bold text-white shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed",
-                    isPlaying
-                      ? "bg-red-500 hover:bg-red-600 shadow-red-500/20"
-                      : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:scale-[1.02] active:scale-95 shadow-blue-600/20"
+                    "flex flex-col items-center justify-center p-6 rounded-[30px] shadow-xl transition-all gap-1 scale-110 z-10",
+                    isPlaying 
+                      ? "bg-amber-100 text-amber-400 cursor-not-allowed" 
+                      : "bg-gradient-to-br from-green-400 to-emerald-500 text-white shadow-emerald-200 hover:scale-[1.15] active:scale-95"
                   )}
                 >
-                  {isPlaying ? (
-                    <>
-                      <Pause className="w-6 h-6 fill-current" />
-                      停止朗讀
-                    </>
-                  ) : (
-                    <>
-                      <Volume2 className="w-6 h-6" />
-                      開始朗讀
-                    </>
-                  )}
+                  <Play className="w-10 h-10 fill-current" />
+                  <span className="text-sm font-black">開始播放</span>
+                </button>
+
+                <button 
+                  onClick={() => { stopTTS(); setTimeout(playTTS, 100); }}
+                  disabled={!text || isProcessing}
+                  className="flex flex-col items-center justify-center p-4 rounded-[25px] bg-blue-100 text-blue-600 hover:bg-blue-200 disabled:opacity-30 transition-all gap-1"
+                >
+                  <RotateCcw className="w-8 h-8" />
+                  <span className="text-xs font-black">重新朗讀</span>
                 </button>
               </div>
             </section>
@@ -442,39 +482,39 @@ export default function OCRReader() {
         {/* Camera Modal */}
         <AnimatePresence>
           {showCamera && (
-            <motion.div
+            <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4 backdrop-blur-md"
             >
-              <div className="relative w-full max-w-2xl aspect-video rounded-3xl overflow-hidden bg-slate-900 shadow-2xl">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
+              <div className="relative w-full max-w-3xl aspect-[3/4] md:aspect-video rounded-[40px] overflow-hidden bg-slate-900 border-4 border-white/20 shadow-2xl">
+                <video 
+                  ref={videoRef} 
+                  autoPlay 
+                  playsInline 
                   className="w-full h-full object-cover"
                 />
                 <canvas ref={canvasRef} className="hidden" />
-
-                <div className="absolute inset-0 border-2 border-white/20 pointer-events-none">
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 border-2 border-blue-500/50 rounded-3xl" />
+                
+                <div className="absolute inset-0 border-8 border-orange-500/30 pointer-events-none rounded-[36px]">
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[60%] border-4 border-dashed border-white/50 rounded-3xl" />
                 </div>
 
-                <div className="absolute bottom-8 left-0 right-0 flex items-center justify-center gap-8">
-                  <button
+                <div className="absolute bottom-10 left-0 right-0 flex items-center justify-center gap-12">
+                  <button 
                     onClick={stopCamera}
-                    className="p-4 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md transition-colors"
+                    className="p-5 rounded-full bg-red-500 text-white shadow-lg hover:bg-red-600 transition-colors"
                   >
-                    <X className="w-6 h-6" />
+                    <X className="w-8 h-8" />
                   </button>
-                  <button
+                  <button 
                     onClick={capturePhoto}
-                    className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center group"
+                    className="w-24 h-24 rounded-full border-8 border-white flex items-center justify-center bg-white/20 hover:bg-white/40 transition-all scale-110 active:scale-90"
                   >
-                    <div className="w-16 h-16 rounded-full bg-white group-active:scale-90 transition-transform" />
+                    <div className="w-16 h-16 rounded-full bg-white shadow-xl" />
                   </button>
-                  <div className="w-14" /> {/* Spacer */}
+                  <div className="w-18" /> {/* Spacer */}
                 </div>
               </div>
             </motion.div>
@@ -482,8 +522,13 @@ export default function OCRReader() {
         </AnimatePresence>
 
         {/* Footer */}
-        <footer className="text-center text-slate-400 text-sm pb-8">
-          <p>© 2026 品量的英語小助手. Powered by Tesseract.js, PDF.js & Gemini AI.</p>
+        <footer className="text-center text-amber-300 text-base font-bold pb-12 space-y-2">
+          <p>🌈 跟著小助手一起快樂學英語吧！</p>
+          <div className="flex justify-center gap-4 text-xs opacity-50">
+            <span>📚 Tesseract.js</span>
+            <span>📄 PDF.js</span>
+            <span>🎯 Web Speech API</span>
+          </div>
         </footer>
       </div>
     </div>
