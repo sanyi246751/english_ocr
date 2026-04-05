@@ -56,30 +56,64 @@ export default function OCRReader() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isPlayingRef = useRef(false);
 
-  // Initialize Voices
+  // Initialize Voices with mobile robust-detect
   useEffect(() => {
+    let timer: NodeJS.Timeout;
     const loadVoices = () => {
       const availableVoices = window.speechSynthesis.getVoices();
       const englishVoices = availableVoices.filter(v => v.lang.startsWith('en'));
-      setVoices(englishVoices.length > 0 ? englishVoices : availableVoices);
       
-      if (!config.voiceURI && englishVoices.length > 0) {
-        // Find Danny Teacher (Male)
-        const danny = englishVoices.find(v => (v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('david') || v.name.toLowerCase().includes('danny') || v.name.toLowerCase().includes('mark'))) || englishVoices[0];
-        setConfig(prev => ({ ...prev, voiceURI: danny.voiceURI }));
+      if (availableVoices.length > 0) {
+        setVoices(englishVoices.length > 0 ? englishVoices : availableVoices);
+        
+        // Auto-select Danny Teacher logic
+        if (englishVoices.length > 0) {
+          const currentVoice = englishVoices.find(v => v.voiceURI === config.voiceURI);
+          if (!currentVoice) {
+            const danny = englishVoices.find(v => (
+              v.name.toLowerCase().includes('male') || 
+              v.name.toLowerCase().includes('david') || 
+              v.name.toLowerCase().includes('danny') || 
+              v.name.toLowerCase().includes('mark') ||
+              v.name.toLowerCase().includes('english (united states)-x-sfg-local') // Common Android male
+            )) || englishVoices[0];
+            setConfig(prev => ({ ...prev, voiceURI: danny.voiceURI }));
+          }
+        }
       }
     };
     
+    // Initial call
     loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    return () => { window.speechSynthesis.onvoiceschanged = null; };
-  }, []);
+    
+    // Most browsers trigger this
+    window.speechSynthesis.onvoiceschanged = () => {
+      loadVoices();
+    };
+
+    // Mobile retry poll (Chrome on Android sometimes needs this)
+    timer = setInterval(() => {
+      if (window.speechSynthesis.getVoices().length > 0) {
+        loadVoices();
+        clearInterval(timer);
+      }
+    }, 500);
+
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null;
+      clearInterval(timer);
+    };
+  }, [config.voiceURI]);
 
   const getCharacterName = (voice: SpeechSynthesisVoice) => {
-    if (voice.name.toLowerCase().includes('female') || voice.name.toLowerCase().includes('susan') || voice.name.toLowerCase().includes('zira') || voice.name.toLowerCase().includes('lindsey')) return '👩‍🏫 露西姊姊';
-    if (voice.name.toLowerCase().includes('male') || voice.name.toLowerCase().includes('david') || voice.name.toLowerCase().includes('danny') || voice.name.toLowerCase().includes('mark') || voice.name.toLowerCase().includes('steven')) return '👨‍🏫 丹尼老師';
-    if (voice.name.toLowerCase().includes('child') || voice.name.toLowerCase().includes('junior')) return '🧒 小朋友';
-    return `✨ ${voice.name.split(' ')[0]}`;
+    const name = voice.name.toLowerCase();
+    if (name.includes('female') || name.includes('susan') || name.includes('zira') || name.includes('samantha') || name.includes('linda') || name.includes('-x-sfg-local')) {
+      if (name.includes('male') || name.includes('david')) return '👨‍🏫 丹尼老師'; // Exception for overlapping names
+      return '👩‍🏫 露西姊姊';
+    }
+    if (name.includes('male') || name.includes('david') || name.includes('danny') || name.includes('mark') || name.includes('steven') || name.includes('daniel')) return '👨‍🏫 丹尼老師';
+    if (name.includes('child') || name.includes('junior')) return '🧒 小朋友';
+    return `✨ ${voice.name.split(' ')[0].replace(/[^a-zA-Z]/g, '') || '小語音'}`;
   };
 
   const evaluateWithWebSpeech = () => {
