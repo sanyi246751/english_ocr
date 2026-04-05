@@ -1,0 +1,7 @@
+{
+  "name": "品量的英語小助手 (English OCR & Reader)",
+  "description": "一個結合 OCR 文字辨識與智慧朗讀系統的英語學習工具，支援圖片、PDF 與相機拍照。",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
