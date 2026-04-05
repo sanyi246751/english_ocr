@@ -107,6 +107,7 @@ export default function OCRReader() {
         await page.render({ canvasContext: context!, viewport }).promise;
         imageToProcess = canvas;
       } else {
+        // Tesseract.js handles both Base64 (from Camera) and Image files
         imageToProcess = typeof file === 'string' ? file : await fileToBase64(file);
       }
 
@@ -132,7 +133,7 @@ export default function OCRReader() {
     }
   };
 
-  // Open Source TTS (Web Speech API)
+  // Open Source TTS (Web Speech API) - Line-based interval
   const playTTS = async () => {
     if (!text || isPlaying) return;
     setIsPlaying(true);
@@ -140,15 +141,16 @@ export default function OCRReader() {
     setError(null);
 
     try {
-      const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+      // Split by NEWLINE as requested by the user
+      const lines = text.split('\n').filter(l => l.trim().length > 0);
       const synth = window.speechSynthesis;
       
       for (let r = 0; r < config.repeatCount; r++) {
-        for (let i = 0; i < sentences.length; i++) {
+        for (let i = 0; i < lines.length; i++) {
           if (!isPlayingRef.current) break;
 
-          const sentence = sentences[i].trim();
-          const utterance = new SpeechSynthesisUtterance(sentence);
+          const lineContent = lines[i].trim();
+          const utterance = new SpeechSynthesisUtterance(lineContent);
           
           const selectedVoice = voices.find(v => v.voiceURI === config.voiceURI);
           if (selectedVoice) utterance.voice = selectedVoice;
@@ -161,7 +163,8 @@ export default function OCRReader() {
             synth.speak(utterance);
           });
 
-          if (i < sentences.length - 1 || r < config.repeatCount - 1) {
+          // Wait the specified interval between lines
+          if (i < lines.length - 1 || r < config.repeatCount - 1) {
             if (!isPlayingRef.current) break;
             await new Promise(resolve => setTimeout(resolve, config.interval));
           }
