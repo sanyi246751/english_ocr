@@ -67,18 +67,15 @@ export default function OCRReader() {
       if (availableVoices.length > 0) {
         setVoices(englishVoices.length > 0 ? englishVoices : availableVoices);
         
-        // Auto-select Danny Teacher only if not already set
+        // Auto-select Tom Teacher (Desktop: David/Mark, Mobile: Aaron/Male)
         if (englishVoices.length > 0) {
           setConfig(prev => {
             if (prev.voiceURI) return prev;
-            const danny = englishVoices.find(v => (
-              v.name.toLowerCase().includes('male') || 
-              v.name.toLowerCase().includes('david') || 
-              v.name.toLowerCase().includes('danny') || 
-              v.name.toLowerCase().includes('mark') ||
-              v.name.toLowerCase().includes('english (united states)-x-sfg-local')
-            )) || englishVoices[0];
-            return { ...prev, voiceURI: danny.voiceURI };
+            const tom = englishVoices.find(v => {
+              const name = v.name.toLowerCase();
+              return name.includes('david') || name.includes('mark') || name.includes('aaron') || (name.includes('male') && !name.includes('danny'));
+            }) || englishVoices[0];
+            return { ...prev, voiceURI: tom.voiceURI };
           });
         }
       }
@@ -103,16 +100,19 @@ export default function OCRReader() {
   const getCharacterName = (voice: SpeechSynthesisVoice) => {
     const name = voice.name.toLowerCase();
     
-    // Find absolute unique winners for Danny and Lucy from our existing SAFE state
-    const dannyURI = voices.find(v => v.name.toLowerCase().includes('david') || v.name.toLowerCase().includes('male'))?.voiceURI;
-    const lucyURI = voices.find(v => v.name.toLowerCase().includes('zira') || v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('samantha'))?.voiceURI;
-
-    if (voice.voiceURI === dannyURI) return '👨‍🏫 丹尼老師';
-    if (voice.voiceURI === lucyURI) return '👩‍🏫 露西姊姊';
+    // Desktop (David, Mark, Zira) & Mobile (Aaron, Samantha, Nicky, sfg) Mapping
+    // Tom: David, Mark, Aaron, or Generic Male
+    if (name.includes('david') || name.includes('mark') || name.includes('aaron') || (name.includes('male') && !name.includes('danny'))) return '🎩 湯姆老師';
+    
+    // Lucy: Zira, Samantha, Nicky, Female, or Android "sfg"
+    if (name.includes('zira') || name.includes('samantha') || name.includes('nicky') || name.includes('female') || name.includes('x-sfg')) return '👩‍🏫 露西姊姊';
+    
+    // Danny: Specifically named Danny or Daniel
+    if (name.includes('danny') || name.includes('daniel')) return '👨‍🏫 丹尼老師';
     
     // Other teachers
-    if (name.includes('male') || name.includes('david') || name.includes('mark') || name.includes('daniel')) return `🎩 湯姆老師`;
-    if (name.includes('female') || name.includes('susan') || name.includes('linda') || name.includes('alice')) return `👒 愛麗絲老師`;
+    if (name.includes('susan') || name.includes('linda') || name.includes('alice')) return `👒 愛麗絲老師`;
+    
     return `✨ ${voice.name.split(' ')[0].replace(/[^a-zA-Z]/g, '') || '小語音'}`;
   };
 
@@ -425,15 +425,12 @@ export default function OCRReader() {
                 </button>
 
                 <button 
-                  onClick={evaluateWithWebSpeech}
+                  onClick={playTTS} 
                   disabled={!text || isProcessing || isPlaying}
-                  className={cn(
-                    "flex flex-col items-center justify-center p-6 rounded-[35px] transition-all gap-2",
-                    isRecognizing ? "bg-orange-500 text-white animate-pulse" : "bg-orange-50 text-orange-400 hover:bg-orange-100 disabled:opacity-20"
-                  )}
+                  className="flex flex-col items-center justify-center p-6 rounded-[35px] bg-orange-50 text-orange-400 hover:bg-orange-100 disabled:opacity-20 transition-all gap-2"
                 >
                   <Volume2 className="w-10 h-10" />
-                  <span className="text-xs font-black">{isRecognizing ? "聽你讀..." : "重讀"}</span>
+                  <span className="text-xs font-black">重新播放</span>
                 </button>
               </div>
             </section>
