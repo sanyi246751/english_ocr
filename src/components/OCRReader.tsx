@@ -102,14 +102,25 @@ export default function OCRReader() {
     const n = voice.name.toLowerCase();
     const u = voice.voiceURI.toLowerCase();
     
-    // Danny: Specifically Daniel or Danny
+    // Danny: Daniel, Danny
     if (n.includes('danny') || n.includes('daniel')) return '👨‍🏫 Danny';
 
-    // Lucy (Female): Zira, Samantha, Nicky, Female, or Android "sfg"
-    if (n.includes('zira') || n.includes('samantha') || n.includes('nicky') || n.includes('female') || n.includes('x-sfg') || u.includes('sfg') || n.includes('susan') || n.includes('alice') || n.includes('catherine')) return '👩‍🏫 Lucy';
+    // Lucy (Female): Zira, Samantha, Nicky, Female, Susan, Alice, Catherine, Martha, Linda
+    // Android Specific: sfg, tpd
+    if (
+      n.includes('zira') || n.includes('samantha') || n.includes('nicky') || 
+      n.includes('female') || n.includes('susan') || n.includes('alice') || 
+      n.includes('catherine') || n.includes('martha') || n.includes('linda') || 
+      u.includes('sfg') || u.includes('tpd') || n.includes('google us english') && !n.includes('male')
+    ) return '👩‍🏫 Lucy';
 
-    // Tom (Default Male): David, Mark, Aaron, Gordon, or Generic Male
-    if (n.includes('david') || n.includes('mark') || n.includes('aaron') || n.includes('gordon') || n.includes('male') || n.includes('arthur')) return '🎩 Tom';
+    // Tom (Default Male): David, Mark, Aaron, Gordon, Arthur, Male
+    // Android Specific: iol, iom, lfg
+    if (
+      n.includes('david') || n.includes('mark') || n.includes('aaron') || 
+      n.includes('gordon') || n.includes('arthur') || n.includes('male') || 
+      u.includes('iol') || u.includes('iom') || u.includes('lfg') || n.includes('google us english male')
+    ) return '🎩 Tom';
     
     return `✨ ${voice.name.split(' ')[0].replace(/[^a-zA-Z]/g, '') || 'Voice'}`;
   };
