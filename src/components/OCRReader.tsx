@@ -29,6 +29,7 @@ interface TTSConfig {
   interval: number;
   speed: number;
   voiceURI: string;
+  usePiper: boolean;
 }
 
 export default function OCRReader() {
@@ -40,51 +41,155 @@ export default function OCRReader() {
   const [showCamera, setShowCamera] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
+  // AI Voice & Recognition States
+  const [worker, setWorker] = useState<Worker | null>(null);
+  const [aiStatus, setAiStatus] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [practiceResult, setPracticeResult] = useState<{ score: number, recognized: string } | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [config, setConfig] = useState<TTSConfig>({
     repeatCount: 1,
     interval: 1000,
     speed: 1.0,
-    voiceURI: ''
+    voiceURI: '',
+    usePiper: false
   });
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isPlayingRef = useRef(false);
 
-  // Initialize Voices
+  // Initialize Worker
   useEffect(() => {
-    const loadVoices = () => {
-      const availableVoices = window.speechSynthesis.getVoices();
-      // Sort voices to put Google/Online voices first for better quality consistency
-      const sortedVoices = [...availableVoices].sort((a, b) => {
-        const aIsGood = a.name.includes('Google') || a.name.includes('Natural') || a.name.includes('Online');
-        const bIsGood = b.name.includes('Google') || b.name.includes('Natural') || b.name.includes('Online');
-        if (aIsGood && !bIsGood) return -1;
-        if (!aIsGood && bIsGood) return 1;
-        return a.lang.localeCompare(b.lang);
-      });
-
-      // Filter for English primarily
-      const englishVoices = sortedVoices.filter(v => v.lang.startsWith('en'));
-      const finalVoices = englishVoices.length > 0 ? englishVoices : sortedVoices;
-      
-      setVoices(finalVoices);
-      
-      if (finalVoices.length > 0 && !config.voiceURI) {
-        // Try to find a natural English voice as default
-        const defaultVoice = finalVoices.find(v => v.lang === 'en-US' && (v.name.includes('Google') || v.name.includes('Natural'))) || finalVoices[0];
-        setConfig(prev => ({ ...prev, voiceURI: defaultVoice.voiceURI }));
+    const aiWorker = new Worker(new URL('../workers/ai-worker.ts', import.meta.url), { type: 'module' });
+    aiWorker.onmessage = (e) => {
+      const { type, payload } = e.data;
+      if (type === 'status') setAiStatus(payload);
+      if (type === 'init-complete') setAiStatus(null);
+      if (type === 'tts-result') playAudioBlob(payload.audio, payload.sampling_rate);
+      if (type === 'asr-result') evaluatePronunciation(payload);
+      if (type === 'error') {
+        setError('AI 模組錯誤：' + payload);
+        setIsProcessing(false);
+        setIsRecording(false);
       }
     };
-    
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    return () => {
-      window.speechSynthesis.onvoiceschanged = null;
-      window.speechSynthesis.cancel();
-    };
+    setWorker(aiWorker);
+    return () => aiWorker.terminate();
   }, []);
+
+  const playAudioBlob = (audioData: Float32Array, samplingRate: number) => {
+    const ctx = new AudioContext();
+    const buffer = ctx.createBuffer(1, audioData.length, samplingRate);
+    buffer.getChannelData(0).set(audioData);
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ctx.destination);
+    source.onended = () => {
+      setIsPlaying(false);
+      isPlayingRef.current = false;
+    };
+    source.start();
+  };
+
+  const evaluatePronunciation = (recognized: string) => {
+    setIsProcessing(false);
+    // Simple word-based score
+    const originalWords = text.toLowerCase().match(/\w+/g) || [];
+    const recognizedWords = recognized.toLowerCase().match(/\w+/g) || [];
+    let matches = 0;
+    originalWords.forEach(w => { if (recognizedWords.includes(w)) matches++; });
+    const score = Math.round((matches / Math.max(originalWords.length, 1)) * 100);
+    setPracticeResult({ score, recognized });
+  };
+
+  const startRecording = async () => {
+    if (!worker) return;
+    setPracticeResult(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+        const audioContext = new AudioContext();
+        const arrayBuffer = await audioBlob.arrayBuffer();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        const float32Data = audioBuffer.getChannelData(0);
+
+        setIsProcessing(true);
+        setAiStatus('正在透過 Whisper 聽懂你的聲音...');
+        worker.postMessage({ type: 'init-asr' });
+        worker.postMessage({ type: 'transcribe', payload: { audio: float32Data } });
+        
+        stream.getTracks().forEach(t => t.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      setError('麥克風權限被拒絕或發生錯誤。');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  // Improved playTTS with Piper Option
+  const playTTS = async () => {
+    if (!text || isPlaying) return;
+    setIsPlaying(true);
+    isPlayingRef.current = true;
+
+    if (config.usePiper && worker) {
+      setAiStatus('正在透過 Piper 生成高音質語音...');
+      worker.postMessage({ type: 'init-tts' });
+      worker.postMessage({ type: 'generate-tts', payload: { text } });
+      return;
+    }
+
+    // Fallback to Native Speech API
+    const lines = text.split('\n').filter(l => l.trim().length > 0);
+    const synth = window.speechSynthesis;
+    try {
+      for (let r = 0; r < config.repeatCount; r++) {
+        for (let i = 0; i < lines.length; i++) {
+          if (!isPlayingRef.current) break;
+          const utterance = new SpeechSynthesisUtterance(lines[i].trim());
+          const selectedVoice = voices.find(v => v.voiceURI === config.voiceURI);
+          if (selectedVoice) utterance.voice = selectedVoice;
+          utterance.rate = config.speed;
+          utterance.lang = 'en-US';
+          await new Promise((resolve) => {
+            utterance.onend = resolve;
+            utterance.onerror = () => resolve(null);
+            synth.speak(utterance);
+          });
+          if (i < lines.length - 1 || r < config.repeatCount - 1) {
+            if (!isPlayingRef.current) break;
+            await new Promise(resolve => setTimeout(resolve, config.interval));
+          }
+        }
+        if (!isPlayingRef.current) break;
+      }
+    } finally {
+      setIsPlaying(false);
+      isPlayingRef.current = false;
+    }
+  };
 
   const performOCR = async (file: File | string) => {
     setIsProcessing(true);
@@ -128,46 +233,11 @@ export default function OCRReader() {
     }
   };
 
-  const playTTS = async () => {
-    if (!text || isPlaying) return;
-    setIsPlaying(true);
-    isPlayingRef.current = true;
-    const lines = text.split('\n').filter(l => l.trim().length > 0);
-    const synth = window.speechSynthesis;
-    
-    try {
-      for (let r = 0; r < config.repeatCount; r++) {
-        for (let i = 0; i < lines.length; i++) {
-          if (!isPlayingRef.current) break;
-          const utterance = new SpeechSynthesisUtterance(lines[i].trim());
-          const selectedVoice = voices.find(v => v.voiceURI === config.voiceURI);
-          if (selectedVoice) utterance.voice = selectedVoice;
-          utterance.rate = config.speed;
-          utterance.lang = 'en-US';
-
-          await new Promise((resolve) => {
-            utterance.onend = resolve;
-            utterance.onerror = () => resolve(null);
-            synth.speak(utterance);
-          });
-
-          if (i < lines.length - 1 || r < config.repeatCount - 1) {
-            if (!isPlayingRef.current) break;
-            await new Promise(resolve => setTimeout(resolve, config.interval));
-          }
-        }
-        if (!isPlayingRef.current) break;
-      }
-    } finally {
-      setIsPlaying(false);
-      isPlayingRef.current = false;
-    }
-  };
-
   const stopTTS = () => {
     isPlayingRef.current = false;
     window.speechSynthesis.cancel();
     setIsPlaying(false);
+    setAiStatus(null);
   };
 
   const startCamera = async () => {
@@ -216,17 +286,24 @@ export default function OCRReader() {
   return (
     <div className="min-h-screen bg-[#FDFCFB] p-4 md:p-8 font-sans text-slate-700">
       <div className="max-w-5xl mx-auto space-y-12">
-        <header className="text-center space-y-6 pt-4">
-          <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="inline-block p-5 bg-indigo-50 rounded-full">
-            <Volume2 className="w-14 h-14 text-indigo-400" />
-          </motion.div>
+        <header className="text-center space-y-2 pt-4">
           <div>
             <motion.h1 initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="text-4xl md:text-5xl font-extrabold text-indigo-950 tracking-tight">
               品量的英語小助手
             </motion.h1>
-            <p className="text-indigo-400 font-bold mt-2 text-lg italic">✨ 陪你一起快樂唸英文 ✨</p>
+            <p className="text-indigo-400 font-bold mt-1 text-lg italic">✨ 陪你一起快樂唸英文 ✨</p>
           </div>
         </header>
+
+        {/* AI Model Loading Progress */}
+        <AnimatePresence>
+          {aiStatus && (
+            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="fixed top-8 left-1/2 -translate-x-1/2 z-[60] bg-white border border-indigo-100 shadow-2xl rounded-full px-8 py-4 flex items-center gap-4">
+              <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
+              <span className="font-bold text-indigo-950">{aiStatus}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           <div className="lg:col-span-4 space-y-8">
@@ -263,6 +340,29 @@ export default function OCRReader() {
                   唸書小設定
                 </h3>
                 <div className="space-y-8">
+                  <div className="flex items-center justify-between px-1">
+                    <label className="text-sm font-black text-slate-400">✨ Piper 高級語音</label>
+                    <button 
+                      onClick={() => setConfig({...config, usePiper: !config.usePiper})}
+                      className={cn("w-14 h-8 rounded-full transition-all relative", config.usePiper ? "bg-indigo-500" : "bg-slate-200")}
+                    >
+                      <div className={cn("absolute top-1 w-6 h-6 rounded-full bg-white transition-all", config.usePiper ? "right-1" : "left-1")} />
+                    </button>
+                  </div>
+
+                  {!config.usePiper && (
+                    <div className="space-y-3">
+                      <label className="text-sm font-black text-slate-400 flex px-1">誰來教你唸？</label>
+                      <select value={config.voiceURI} onChange={(e) => setConfig({...config, voiceURI: e.target.value})} className="w-full p-5 rounded-[25px] bg-slate-50 border border-slate-100 text-lg font-bold text-slate-700 outline-none focus:border-indigo-400 transition-colors cursor-pointer">
+                        {voices.length > 0 ? voices.map(v => (
+                          <option key={v.voiceURI} value={v.voiceURI}>
+                            {v.name.includes('Google') || v.name.includes('Online') ? '☁️ ' : '💻 '}{v.name.split(' - ')[0].replace('Microsoft ', '').replace('Google ', '')}
+                          </option>
+                        )) : <option>預設小語音</option>}
+                      </select>
+                    </div>
+                  )}
+
                   <div className="space-y-3">
                     <label className="text-sm font-black text-slate-400 flex justify-between px-1">唸幾遍 <span>{config.repeatCount} 次</span></label>
                     <input type="range" min="1" max="5" step="1" value={config.repeatCount} onChange={(e) => setConfig({...config, repeatCount: parseInt(e.target.value)})} className="w-full h-3 bg-slate-100 rounded-full appearance-none cursor-pointer accent-indigo-500" />
@@ -274,16 +374,6 @@ export default function OCRReader() {
                   <div className="space-y-3">
                     <label className="text-sm font-black text-slate-400 flex justify-between px-1">唸完一行停一下 <span>{config.interval / 1000}秒</span></label>
                     <input type="range" min="0" max="3000" step="500" value={config.interval} onChange={(e) => setConfig({...config, interval: parseInt(e.target.value)})} className="w-full h-3 bg-slate-100 rounded-full appearance-none cursor-pointer accent-indigo-500" />
-                  </div>
-                  <div className="space-y-3">
-                    <label className="text-sm font-black text-slate-400 flex px-1">誰來教你唸？</label>
-                    <select value={config.voiceURI} onChange={(e) => setConfig({...config, voiceURI: e.target.value})} className="w-full p-5 rounded-[25px] bg-slate-50 border border-slate-100 text-lg font-bold text-slate-700 outline-none focus:border-indigo-400 transition-colors cursor-pointer">
-                      {voices.length > 0 ? voices.map(v => (
-                        <option key={v.voiceURI} value={v.voiceURI}>
-                          {v.name.includes('Google') || v.name.includes('Online') ? '☁️ ' : '💻 '}{v.name.split(' - ')[0].replace('Microsoft ', '').replace('Google ', '')}
-                        </option>
-                      )) : <option>預設小語音</option>}
-                    </select>
                   </div>
                 </div>
               </div>
@@ -303,7 +393,7 @@ export default function OCRReader() {
                       {isCopied ? <Check className="w-7 h-7 text-green-500" /> : <Copy className="w-7 h-7" />}
                     </button>
                   )}
-                  <button onClick={() => setText('')} className="p-4 rounded-[20px] bg-rose-50 hover:bg-rose-100 text-rose-300 hover:text-rose-500 transition-colors">
+                  <button onClick={() => { setText(''); setPracticeResult(null); }} className="p-4 rounded-[20px] bg-rose-50 hover:bg-rose-100 text-rose-300 hover:text-rose-500 transition-colors">
                     <RotateCcw className="w-7 h-7" />
                   </button>
                 </div>
@@ -316,20 +406,33 @@ export default function OCRReader() {
                       <Loader2 className="w-20 h-20 text-indigo-400" />
                     </motion.div>
                     <div className="text-center space-y-4">
-                      <p className="text-indigo-600 text-2xl font-black">正在幫你讀書...</p>
-                      <div className="w-72 h-4 bg-indigo-50 rounded-full overflow-hidden">
-                        <motion.div className="h-full bg-gradient-to-r from-indigo-400 to-rose-300" initial={{ width: 0 }} animate={{ width: `${ocrProgress * 100}%` }} />
-                      </div>
-                      <p className="text-indigo-300 font-bold text-lg">{Math.round(ocrProgress * 100)}%</p>
+                      <p className="text-indigo-600 text-2xl font-black">正在處理中...</p>
+                      {ocrProgress > 0 && (
+                        <div className="w-72 h-4 bg-indigo-50 rounded-full overflow-hidden">
+                          <motion.div className="h-full bg-gradient-to-r from-indigo-400 to-rose-300" initial={{ width: 0 }} animate={{ width: `${ocrProgress * 100}%` }} />
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
+                
                 <textarea
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   placeholder="✨ 把課本放進來，按一下「開始唸書」就可以聽囉！🎒"
                   className="w-full h-full p-10 rounded-[40px] bg-slate-50/50 border-2 border-transparent focus:border-indigo-100 focus:bg-white transition-all outline-none resize-none text-3xl font-medium leading-relaxed placeholder:text-slate-200"
                 />
+
+                {/* Practice Score Overlay */}
+                <AnimatePresence>
+                  {practiceResult && (
+                    <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="absolute bottom-8 right-8 bg-white shadow-2xl rounded-[35px] border-4 border-indigo-100 p-8 z-20 flex flex-col items-center gap-4">
+                      <div className="text-5xl font-black text-indigo-600">{practiceResult.score} 分</div>
+                      <div className="text-sm font-bold text-slate-400">你剛才讀了: "{practiceResult.recognized}"</div>
+                      <button onClick={() => setPracticeResult(null)} className="text-rose-400 font-bold text-sm underline">清除</button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               {error && (
@@ -339,18 +442,33 @@ export default function OCRReader() {
                 </div>
               )}
 
-              <div className="mt-12 grid grid-cols-3 gap-6">
+              <div className="mt-12 grid grid-cols-4 gap-6 items-center">
                 <button onClick={stopTTS} disabled={!isPlaying} className="flex flex-col items-center justify-center p-6 rounded-[35px] bg-slate-50 text-slate-400 hover:bg-slate-100 disabled:opacity-20 transition-all gap-2">
                   <Pause className="w-10 h-10 fill-current" />
-                  <span className="text-sm font-black">不用唸了</span>
+                  <span className="text-xs font-black">停止</span>
                 </button>
-                <button onClick={playTTS} disabled={!text || isProcessing || isPlaying} className={cn("flex flex-col items-center justify-center p-8 rounded-[40px] shadow-2xl transition-all gap-2 scale-110 z-10", isPlaying ? "bg-slate-50 text-slate-300 cursor-not-allowed" : "bg-indigo-500 text-white shadow-indigo-200 hover:scale-[1.15] active:scale-95")}>
+
+                <button onClick={playTTS} disabled={!text || isProcessing || isPlaying} className={cn("col-span-2 flex flex-col items-center justify-center p-8 rounded-[40px] shadow-2xl transition-all gap-2 scale-110 z-10", isPlaying ? "bg-slate-50 text-slate-300 cursor-not-allowed" : "bg-indigo-500 text-white shadow-indigo-200 hover:scale-[1.15] active:scale-95")}>
                   <Play className="w-12 h-12 fill-current" />
                   <span className="text-lg font-black tracking-wider">開始唸書</span>
                 </button>
-                <button onClick={() => { stopTTS(); setTimeout(playTTS, 100); }} disabled={!text || isProcessing} className="flex flex-col items-center justify-center p-6 rounded-[35px] bg-indigo-50 text-indigo-400 hover:bg-indigo-100 disabled:opacity-20 transition-all gap-2">
-                  <RotateCcw className="w-10 h-10" />
-                  <span className="text-sm font-black">再唸一次</span>
+
+                <button 
+                  onMouseDown={startRecording}
+                  onMouseUp={stopRecording}
+                  onTouchStart={startRecording}
+                  onTouchEnd={stopRecording}
+                  disabled={!text || isProcessing || isPlaying}
+                  className={cn(
+                    "flex flex-col items-center justify-center p-6 rounded-[35px] transition-all gap-2",
+                    isRecording ? "bg-rose-500 text-white animate-pulse" : "bg-indigo-50 text-indigo-400 hover:bg-indigo-100 disabled:opacity-20"
+                  )}
+                >
+                  <div className="relative">
+                    <Volume2 className="w-10 h-10" />
+                    {isRecording && <div className="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full" />}
+                  </div>
+                  <span className="text-xs font-black">{isRecording ? "錄音中" : "換我讀"}</span>
                 </button>
               </div>
             </section>
@@ -383,7 +501,7 @@ export default function OCRReader() {
         <footer className="text-center text-slate-300 text-lg font-bold pb-16 space-y-3">
           <p>🌈 讓英語變成你的好朋友</p>
           <div className="flex justify-center gap-6 text-xs font-medium opacity-30">
-            <span>Powered by Open-Source Libraries</span>
+            <span>Powered by Whisper.cpp & Piper</span>
             <span>Made with Care for Kids</span>
           </div>
         </footer>
