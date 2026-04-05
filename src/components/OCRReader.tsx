@@ -66,44 +66,38 @@ export default function OCRReader() {
       if (availableVoices.length > 0) {
         setVoices(englishVoices.length > 0 ? englishVoices : availableVoices);
         
-        // Auto-select Danny Teacher logic
+        // Auto-select Danny Teacher only if not already set
         if (englishVoices.length > 0) {
-          const currentVoice = englishVoices.find(v => v.voiceURI === config.voiceURI);
-          if (!currentVoice) {
+          setConfig(prev => {
+            if (prev.voiceURI) return prev;
             const danny = englishVoices.find(v => (
               v.name.toLowerCase().includes('male') || 
               v.name.toLowerCase().includes('david') || 
               v.name.toLowerCase().includes('danny') || 
               v.name.toLowerCase().includes('mark') ||
-              v.name.toLowerCase().includes('english (united states)-x-sfg-local') // Common Android male
+              v.name.toLowerCase().includes('english (united states)-x-sfg-local')
             )) || englishVoices[0];
-            setConfig(prev => ({ ...prev, voiceURI: danny.voiceURI }));
-          }
+            return { ...prev, voiceURI: danny.voiceURI };
+          });
         }
       }
     };
     
-    // Initial call
     loadVoices();
-    
-    // Most browsers trigger this
-    window.speechSynthesis.onvoiceschanged = () => {
-      loadVoices();
-    };
+    window.speechSynthesis.onvoiceschanged = loadVoices;
 
-    // Mobile retry poll (Chrome on Android sometimes needs this)
     timer = setInterval(() => {
       if (window.speechSynthesis.getVoices().length > 0) {
         loadVoices();
         clearInterval(timer);
       }
-    }, 500);
+    }, 1000);
 
     return () => {
       window.speechSynthesis.onvoiceschanged = null;
       clearInterval(timer);
     };
-  }, [config.voiceURI]);
+  }, []);
 
   const getCharacterName = (voice: SpeechSynthesisVoice) => {
     const name = voice.name.toLowerCase();
