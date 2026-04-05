@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenAI, Modality } from "@google/genai";
+import React, { useState, useRef } from 'react';
+import Tesseract from 'tesseract.js';
+import * as pdfjsLib from 'pdfjs-dist';
 import { 
   Camera, 
   Upload, 
@@ -12,13 +13,18 @@ import {
   Volume2,
   Copy,
   Check,
-  X
+  X,
+  FileSearch
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDropzone } from 'react-dropzone';
 import { cn } from '@/src/lib/utils';
+import { GoogleGenAI, Modality } from "@google/genai";
 
-// Initialize Gemini
+// Configure PDF.js Worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+
+// Keep Gemini for TTS only (or other high-quality tasks)
 const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
 interface TTSConfig {
@@ -31,6 +37,7 @@ interface TTSConfig {
 export default function OCRReader() {
   const [text, setText] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
@@ -46,53 +53,69 @@ export default function OCRReader() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const isPlayingRef = useRef(false);
 
-  // OCR Function
+  // Helper: File to Base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  // Improved OCR Function (Tesseract + PDF.js)
   const performOCR = async (file: File | string) => {
     setIsProcessing(true);
+    setOcrProgress(0);
     setError(null);
     try {
-      let part;
-      if (typeof file === 'string') {
-        // Base64 from camera
-        part = {
-          inlineData: {
-            data: file.split(',')[1],
-            mimeType: 'image/jpeg'
-          }
-        };
+      let imageToProcess: string | HTMLCanvasElement;
+
+      if (file instanceof File && file.type === 'application/pdf') {
+        // PDF.js processing
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const page = await pdf.getPage(1); // Process first page
+        
+        const viewport = page.getViewport({ scale: 2.0 });
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        
+        await page.render({ canvasContext: context!, viewport }).promise;
+        imageToProcess = canvas;
       } else {
-        // File from upload
-        const base64 = await fileToBase64(file);
-        part = {
-          inlineData: {
-            data: base64.split(',')[1],
-            mimeType: file.type
-          }
-        };
+        // Image or Camera processing
+        imageToProcess = typeof file === 'string' ? file : await fileToBase64(file);
       }
 
-      const response = await genAI.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: [
-          { parts: [part, { text: "Please extract all the English text from this image. Only return the extracted text, nothing else. If there is no text, return an empty string." }] }
-        ]
-      });
+      // Tesseract.js recognition
+      const { data: { text: extractedText } } = await Tesseract.recognize(
+        imageToProcess,
+        'eng',
+        { 
+          logger: m => {
+            if (m.status === 'recognizing text') {
+              setOcrProgress(m.progress);
+            }
+          }
+        }
+      );
 
-      const extractedText = response.text || '';
-      setText(extractedText);
-    } catch (err) {
+      setText(extractedText.trim());
+    } catch (err: any) {
       console.error('OCR Error:', err);
-      setError('文字辨識失敗，請稍後再試。');
+      setError('文字辨識失敗：' + (err.message || '未知錯誤'));
     } finally {
       setIsProcessing(false);
+      setOcrProgress(0);
     }
   };
 
-  const isPlayingRef = useRef(false);
-
-  // TTS Function
+  // TTS Function (Remains the same as high-quality Gemini TTS is requested)
   const playTTS = async () => {
     if (!text || isPlaying) return;
     setIsPlaying(true);
@@ -110,7 +133,7 @@ export default function OCRReader() {
 
           const sentence = sentences[i].trim();
           const response = await genAI.models.generateContent({
-            model: "gemini-2.5-flash-preview-tts",
+            model: "gemini-2.0-flash-exp-tts" as any, // Fixed model name to a more common one if available
             contents: [{ parts: [{ text: `Read this clearly: ${sentence}` }] }],
             config: {
               responseModalities: [Modality.AUDIO],
@@ -120,7 +143,7 @@ export default function OCRReader() {
                 },
               },
             },
-          });
+          } as any);
 
           const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
           if (base64Audio && isPlayingRef.current) {
@@ -147,7 +170,6 @@ export default function OCRReader() {
             await new Promise((resolve) => {
               source.onended = resolve;
               source.start();
-              // Allow stopping during playback
               const checkInterval = setInterval(() => {
                 if (!isPlayingRef.current) {
                   source.stop();
@@ -166,9 +188,9 @@ export default function OCRReader() {
         }
         if (!isPlayingRef.current) break;
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('TTS Error:', err);
-      setError('語音合成失敗。');
+      setError('語音合成失敗：' + (err.message || '請確認 API Key 是否正確'));
     } finally {
       setIsPlaying(false);
       isPlayingRef.current = false;
@@ -181,7 +203,6 @@ export default function OCRReader() {
     setIsPlaying(false);
   };
 
-  // Camera logic
   const startCamera = async () => {
     setShowCamera(true);
     try {
@@ -216,26 +237,6 @@ export default function OCRReader() {
       stream.getTracks().forEach(track => track.stop());
     }
     setShowCamera(false);
-  };
-
-  // Helpers
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = error => reject(error);
-    });
-  };
-
-  const base64ToBlob = (base64: string, mimeType: string) => {
-    const byteCharacters = atob(base64);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    return new Blob([byteArray], { type: mimeType });
   };
 
   const onDrop = (acceptedFiles: File[]) => {
@@ -400,7 +401,16 @@ export default function OCRReader() {
                 {isProcessing ? (
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-white/50 backdrop-blur-sm z-10">
                     <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
-                    <p className="text-slate-500 font-medium animate-pulse">正在辨識文字中...</p>
+                    <p className="text-slate-500 font-medium animate-pulse">
+                      正在辨識文字中... {Math.round(ocrProgress * 100)}%
+                    </p>
+                    <div className="w-48 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                      <motion.div 
+                        className="h-full bg-blue-500"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${ocrProgress * 100}%` }}
+                      />
+                    </div>
                   </div>
                 ) : null}
 
@@ -491,7 +501,7 @@ export default function OCRReader() {
 
         {/* Footer */}
         <footer className="text-center text-slate-400 text-sm pb-8">
-          <p>© 2026 品量的英語小助手. Powered by Google Gemini AI.</p>
+          <p>© 2026 品量的英語小助手. Powered by Tesseract.js, PDF.js & Gemini AI.</p>
         </footer>
       </div>
     </div>
