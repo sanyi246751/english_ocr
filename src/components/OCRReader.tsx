@@ -13,8 +13,7 @@ import {
   Volume2,
   Copy,
   Check,
-  X,
-  Mic
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDropzone } from 'react-dropzone';
@@ -292,7 +291,7 @@ export default function OCRReader() {
             <motion.h1 initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="text-4xl md:text-5xl font-extrabold text-indigo-950 tracking-tight">
               品量的英語小助手
             </motion.h1>
-            <p className="text-indigo-400 font-bold mt-1 text-lg italic">✨ 陪你一起快樂唸英文 ✨</p>
+            <p className="text-indigo-400 font-bold text-lg italic">✨ 陪你一起快樂唸英文 ✨</p>
           </div>
         </header>
 
@@ -466,7 +465,7 @@ export default function OCRReader() {
                   )}
                 >
                   <div className="relative">
-                    <Mic className="w-10 h-10" />
+                    <Volume2 className="w-10 h-10" />
                     {isRecording && <div className="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full" />}
                   </div>
                   <span className="text-xs font-black">{isRecording ? "錄音中" : "換我讀"}</span>
