@@ -54,7 +54,7 @@ export default function OCRReader() {
     interval: 1000,
     speed: 1.0,
     voiceURI: '',
-    usePiper: false
+    usePiper: true
   });
 
   const videoRef = useRef<HTMLVideoElement>(null);
