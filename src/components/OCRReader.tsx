@@ -39,6 +39,7 @@ export default function OCRReader() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isCopied, setIsCopied] = useState(false);
 
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [isRecognizing, setIsRecognizing] = useState(false);
@@ -101,12 +102,17 @@ export default function OCRReader() {
 
   const getCharacterName = (voice: SpeechSynthesisVoice) => {
     const name = voice.name.toLowerCase();
-    if (name.includes('female') || name.includes('susan') || name.includes('zira') || name.includes('samantha') || name.includes('linda') || name.includes('-x-sfg-local')) {
-      if (name.includes('male') || name.includes('david')) return '👨‍🏫 丹尼老師'; // Exception for overlapping names
-      return '👩‍🏫 露西姊姊';
-    }
-    if (name.includes('male') || name.includes('david') || name.includes('danny') || name.includes('mark') || name.includes('steven') || name.includes('daniel')) return '👨‍🏫 丹尼老師';
-    if (name.includes('child') || name.includes('junior')) return '🧒 小朋友';
+    
+    // Find absolute unique winners for Danny and Lucy from our existing SAFE state
+    const dannyURI = voices.find(v => v.name.toLowerCase().includes('david') || v.name.toLowerCase().includes('male'))?.voiceURI;
+    const lucyURI = voices.find(v => v.name.toLowerCase().includes('zira') || v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('samantha'))?.voiceURI;
+
+    if (voice.voiceURI === dannyURI) return '👨‍🏫 丹尼老師';
+    if (voice.voiceURI === lucyURI) return '👩‍🏫 露西姊姊';
+    
+    // Other teachers
+    if (name.includes('male') || name.includes('david') || name.includes('mark') || name.includes('daniel')) return `🎩 湯姆老師`;
+    if (name.includes('female') || name.includes('susan') || name.includes('linda') || name.includes('alice')) return `👒 愛麗絲老師`;
     return `✨ ${voice.name.split(' ')[0].replace(/[^a-zA-Z]/g, '') || '小語音'}`;
   };
 
@@ -125,20 +131,27 @@ export default function OCRReader() {
     recognition.onstart = () => {
       setIsRecognizing(true);
       setPracticeResult(null);
+      setError(null);
     };
 
     recognition.onresult = (event: any) => {
       const recognized = event.results[0][0].transcript;
-      const originalWords = text.toLowerCase().match(/\w+/g) || [];
-      const recognizedWords = recognized.toLowerCase().match(/\w+/g) || [];
+      const currentText = text; // Using the state at the time of result
+      const originalWords = currentText.toLowerCase().match(/[a-z0-9']+/g) || [];
+      const recognizedWords = recognized.toLowerCase().match(/[a-z0-9']+/g) || [];
+      
       let matches = 0;
       originalWords.forEach(w => { if (recognizedWords.includes(w)) matches++; });
       const score = Math.round((matches / Math.max(originalWords.length, 1)) * 100);
       setPracticeResult({ score, recognized });
     };
 
-    recognition.onerror = () => {
-      setError('沒聽清楚，可以再讀一遍嗎？');
+    recognition.onerror = (event: any) => {
+      if (event.error === 'not-allowed') {
+        setError('請點一下網址旁邊的「鎖頭」，然後開啟「麥克風」權限喔！🎤');
+      } else {
+        setError('剛才沒聽清楚，請靠近一點再讀一遍！👂');
+      }
       setIsRecognizing(false);
     };
 
@@ -420,7 +433,7 @@ export default function OCRReader() {
                   )}
                 >
                   <Volume2 className="w-10 h-10" />
-                  <span className="text-xs font-black">{isRecognizing ? "聽你讀..." : "我要讀"}</span>
+                  <span className="text-xs font-black">{isRecognizing ? "聽你讀..." : "重讀"}</span>
                 </button>
               </div>
             </section>
